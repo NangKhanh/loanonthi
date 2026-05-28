@@ -100,7 +100,7 @@ async function fetchSheetQuestions(spreadsheetId: string, sheet: SheetMeta): Pro
   }
 
   return questionRows
-    .map((row, index) => normalizeRow(headers, row, sheet, index))
+    .map((row) => normalizeRow(headers, row, sheet))
     .filter((question): question is Question => question !== null);
 }
 
@@ -115,22 +115,22 @@ function parseGvizJson(text: string): GvizResponse {
   return JSON.parse(text.slice(jsonStart, jsonEnd + 1)) as GvizResponse;
 }
 
-function normalizeRow(headers: string[], row: string[], sheet: SheetMeta, index: number): Question | null {
+function normalizeRow(headers: string[], row: string[], sheet: SheetMeta): Question | null {
   const value = (key: string) => row[headers.findIndex((header) => header.trim() === key)]?.trim() ?? "";
 
+  const id = value("id");
   const question = value("question");
-  const answer = sheet.type === "theory" ? value("answer") : normalizeAnswer(value("answer"));
 
-  if (!question || !answer) {
+  if (!id || !question) {
     return null;
   }
 
   const baseQuestion = {
-    id: value("id") || `${sheet.gid}-${index + 1}`,
+    id,
     question,
-    answer,
-    explanation: value("explanation") || "Chưa có lời giải.",
-    level: value("level") || "Normal",
+    answer: sheet.type === "theory" ? value("answer") : normalizeAnswer(value("answer")),
+    explanation: value("explanation"),
+    level: value("level") || "Easy",
     type: sheet.type === "theory" ? "text" : "choice",
   } satisfies Omit<Question, "A" | "B" | "C" | "D">;
 
@@ -138,27 +138,18 @@ function normalizeRow(headers: string[], row: string[], sheet: SheetMeta, index:
     return baseQuestion;
   }
 
-  const A = value("A");
-  const B = value("B");
-  const C = value("C");
-  const D = value("D");
-
-  if (!A || !B || !C || !D) {
-    return null;
-  }
-
   return {
     ...baseQuestion,
-    A,
-    B,
-    C,
-    D,
+    A: value("A"),
+    B: value("B"),
+    C: value("C"),
+    D: value("D"),
   };
 }
 
-function normalizeAnswer(answer: string): AnswerOption | null {
+function normalizeAnswer(answer: string): AnswerOption | "" {
   const normalized = answer.trim().toUpperCase();
-  return normalized === "A" || normalized === "B" || normalized === "C" || normalized === "D" ? normalized : null;
+  return normalized === "A" || normalized === "B" || normalized === "C" || normalized === "D" ? normalized : "";
 }
 
 function getTopicType(name: string): TopicType {

@@ -80,7 +80,6 @@ export default function Home() {
   const textReviewItems = theoryQuestions.map((question) => ({
     question,
     answer: textAnswers[question.id]?.trim() ?? "",
-    isCorrect: isTextAnswerCorrect(textAnswers[question.id] ?? "", question.answer),
   }));
 
   function handleModeChange(nextMode: Mode) {
@@ -490,7 +489,7 @@ function TheoryPanel({
   questions: Question[];
   answers: TextAnswerMap;
   isReviewing: boolean;
-  reviewItems: Array<{ question: Question; answer: string; isCorrect: boolean }>;
+  reviewItems: Array<{ question: Question; answer: string }>;
   onAnswerChange: (questionId: string, value: string) => void;
   onSubmit: () => void;
   onRetry: () => void;
@@ -504,19 +503,14 @@ function TheoryPanel({
   }
 
   if (isReviewing) {
-    const correctCount = reviewItems.filter((item) => item.isCorrect).length;
     return (
       <article className="panel">
-        <div className="scoreBox inline">
-          <span>Kết quả lý thuyết</span>
-          <strong>{correctCount}/{reviewItems.length}</strong>
-        </div>
         <div className="reviewList">
-          {reviewItems.map(({ question, answer, isCorrect }, index) => (
-            <div className={isCorrect ? "reviewItem correctBorder" : "reviewItem wrongBorder"} key={question.id}>
+          {reviewItems.map(({ question, answer }, index) => (
+            <div className="reviewItem" key={question.id}>
               <div className="questionMeta">
                 <span>Câu {index + 1}</span>
-                <span>{isCorrect ? "Đúng" : "Sai"}</span>
+                <span>{question.level}</span>
               </div>
               <h3>{question.question}</h3>
               <p className="muted">
@@ -650,14 +644,6 @@ function StatsPanel({
 
 function getExamScore(questions: Question[], answers: ExamAnswerMap) {
   return questions.filter((question) => answers[question.id] === question.answer).length;
-}
-
-function isTextAnswerCorrect(answer: string, correctAnswer: string) {
-  return normalizeText(answer) === normalizeText(correctAnswer);
-}
-
-function normalizeText(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 function shuffleQuestions<T>(items: T[]) {
