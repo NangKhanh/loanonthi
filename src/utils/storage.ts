@@ -1,4 +1,4 @@
-import type { AnswerOption, PracticeResult } from "@/types/quiz";
+import type { PracticeResult } from "@/types/quiz";
 
 const resultsKey = "onthiloan-results";
 const wrongKey = "onthiloan-wrong-question-ids";
@@ -15,14 +15,14 @@ export function getWrongQuestionIds(): string[] {
 
 export function recordAnswer(
   questionId: string,
-  selectedAnswer: AnswerOption,
-  correctAnswer: AnswerOption,
+  selectedAnswer: string,
+  correctAnswer: string,
 ): PracticeResult {
   const result: PracticeResult = {
     questionId,
     selectedAnswer,
     correctAnswer,
-    isCorrect: selectedAnswer === correctAnswer,
+    isCorrect: normalizeAnswer(selectedAnswer) === normalizeAnswer(correctAnswer),
     answeredAt: new Date().toISOString(),
   };
 
@@ -53,4 +53,8 @@ function readJson<T>(key: string, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+function normalizeAnswer(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
 }

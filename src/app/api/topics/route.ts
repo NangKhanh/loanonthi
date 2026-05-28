@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import type { AnswerOption, Question } from "@/types/quiz";
+import type { AnswerOption, Question, TopicType } from "@/types/quiz";
 
 type SheetMeta = {
   gid: string;
   name: string;
+  type: TopicType;
 };
 
 type GvizCell = {
@@ -36,6 +37,7 @@ export async function GET() {
       sheets.map(async (sheet) => ({
         name: sheet.name,
         gid: sheet.gid,
+        type: sheet.type,
         questions: await fetchSheetQuestions(sheetId, sheet),
       })),
     );
@@ -63,7 +65,7 @@ async function fetchSheetList(spreadsheetId: string): Promise<SheetMeta[]> {
       const gid = match[1];
       const name = match[2]?.replaceAll('\\"', '"');
 
-      return gid && name ? { gid, name } : null;
+      return gid && name ? { gid, name: getDisplayName(name), type: getTopicType(name) } : null;
     })
     .filter((sheet): sheet is SheetMeta => sheet !== null);
 
@@ -117,30 +119,52 @@ function normalizeRow(headers: string[], row: string[], sheet: SheetMeta, index:
   const value = (key: string) => row[headers.findIndex((header) => header.trim() === key)]?.trim() ?? "";
 
   const question = value("question");
+  const answer = sheet.type === "theory" ? value("answer") : normalizeAnswer(value("answer"));
+
+  if (!question || !answer) {
+    return null;
+  }
+
+  const baseQuestion = {
+    id: value("id") || `${sheet.gid}-${index + 1}`,
+    question,
+    answer,
+    explanation: value("explanation") || "Chưa có lời giải.",
+    level: value("level") || "Normal",
+    type: sheet.type === "theory" ? "text" : "choice",
+  } satisfies Omit<Question, "A" | "B" | "C" | "D">;
+
+  if (sheet.type === "theory") {
+    return baseQuestion;
+  }
+
   const A = value("A");
   const B = value("B");
   const C = value("C");
   const D = value("D");
-  const answer = normalizeAnswer(value("answer"));
 
-  if (!question || !A || !B || !C || !D || !answer) {
+  if (!A || !B || !C || !D) {
     return null;
   }
 
   return {
-    id: value("id") || `${sheet.gid}-${index + 1}`,
-    question,
+    ...baseQuestion,
     A,
     B,
     C,
     D,
-    answer,
-    explanation: value("explanation") || "Chưa có lời giải.",
-    level: value("level") || "Normal",
   };
 }
 
 function normalizeAnswer(answer: string): AnswerOption | null {
   const normalized = answer.trim().toUpperCase();
   return normalized === "A" || normalized === "B" || normalized === "C" || normalized === "D" ? normalized : null;
+}
+
+function getTopicType(name: string): TopicType {
+  return name.trim().toLowerCase().startsWith("ly-thuyet-") ? "theory" : "choice";
+}
+
+function getDisplayName(name: string) {
+  return name.replace(/^ly-thuyet-/i, "");
 }

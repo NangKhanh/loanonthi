@@ -116,6 +116,11 @@ h2 {
   font-size: 13px;
 }
 
+.sidebarHint {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.7);
+}
+
 .workspace {
   display: flex;
   flex-direction: column;
@@ -221,6 +226,175 @@ h2 {
 .answerButton.wrong {
   border-color: var(--danger);
   background: var(--danger-bg);
+}
+
+.examShell {
+  display: grid;
+  gap: 18px;
+  width: min(1040px, 100%);
+}
+
+.examHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(23, 32, 42, 0.08);
+}
+
+.dark {
+  color: var(--accent-dark);
+}
+
+.examHeader h2 {
+  margin-bottom: 0;
+}
+
+.examCounter,
+.scoreBox {
+  display: grid;
+  gap: 4px;
+  min-width: 120px;
+  padding: 14px 18px;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  text-align: center;
+}
+
+.examCounter strong,
+.scoreBox strong {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.examCounter span,
+.scoreBox span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.examQuestionList,
+.reviewList,
+.theoryPanel {
+  display: grid;
+  gap: 14px;
+}
+
+.examQuestion,
+.reviewItem,
+.textQuestion {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.examQuestion h3,
+.reviewItem h3 {
+  margin: 0 0 14px;
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.compactAnswerGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.compactAnswer {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.compactAnswer.active {
+  border-color: var(--accent);
+  background: #f0fdfa;
+}
+
+.compactAnswer strong {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--accent-dark);
+}
+
+.stickyActions {
+  position: sticky;
+  bottom: 16px;
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+}
+
+.examResultPanel {
+  display: grid;
+  gap: 16px;
+}
+
+.scoreBox.inline {
+  width: max-content;
+  min-width: 180px;
+  margin-bottom: 18px;
+}
+
+.correctBorder {
+  border-color: var(--success);
+}
+
+.wrongBorder {
+  border-color: var(--danger);
+}
+
+.textQuestion {
+  display: grid;
+  gap: 10px;
+}
+
+.textQuestion span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.textQuestion strong {
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.textQuestion input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+}
+
+.textQuestion input:focus {
+  border-color: var(--accent);
+  outline: 2px solid rgba(15, 118, 110, 0.14);
 }
 
 .explanation {
@@ -347,8 +521,14 @@ h2 {
   }
 
   .answerGrid,
-  .statsGrid {
+  .statsGrid,
+  .compactAnswerGrid {
     grid-template-columns: 1fr;
+  }
+
+  .examHeader {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   h1 {

@@ -11,12 +11,15 @@ import {
 } from "@/utils/storage";
 
 const options: AnswerOption[] = ["A", "B", "C", "D"];
+const examQuestionCount = 35;
 
 type Mode = "practice" | "exam" | "flashcard" | "wrong" | "stats";
+type ExamAnswerMap = Record<string, AnswerOption>;
+type TextAnswerMap = Record<string, string>;
 
 export default function Home() {
   const [topics, setTopics] = useState<Topic[]>([]);
-  const [selectedTopic, setSelectedTopic] = useState("");
+  const [selectedTopicId, setSelectedTopicId] = useState("");
   const [mode, setMode] = useState<Mode>("practice");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -27,6 +30,11 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [flashcardFlipped, setFlashcardFlipped] = useState(false);
+  const [examQuestions, setExamQuestions] = useState<Question[]>([]);
+  const [examAnswers, setExamAnswers] = useState<ExamAnswerMap>({});
+  const [examSubmitted, setExamSubmitted] = useState(false);
+  const [textAnswers, setTextAnswers] = useState<TextAnswerMap>({});
+  const [textSubmitted, setTextSubmitted] = useState(false);
 
   useEffect(() => {
     async function loadTopics() {
@@ -36,10 +44,13 @@ export default function Home() {
       try {
         const nextTopics = await fetchTopics();
         const firstTopic = nextTopics[0];
+        const nextChoiceQuestions = nextTopics
+          .filter((topic) => topic.type === "choice")
+          .flatMap((topic) => topic.questions);
 
         setTopics(nextTopics);
-        setSelectedTopic(firstTopic?.name ?? "");
-        setQuestions(shuffleQuestions(firstTopic?.questions ?? []));
+        setSelectedTopicId(firstTopic?.gid ?? "");
+        setQuestions(shuffleQuestions(nextChoiceQuestions));
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "Không tải được dữ liệu.");
       } finally {
@@ -50,14 +61,27 @@ export default function Home() {
     loadTopics();
   }, []);
 
-  const currentQuestion = questions[currentIndex];
-  const allQuestions = useMemo(() => topics.flatMap((topic) => topic.questions), [topics]);
-  const wrongQuestions = useMemo(() => allQuestions.filter((question) => wrongIds.includes(question.id)), [allQuestions, wrongIds]);
+  const selectedTopic = topics.find((topic) => topic.gid === selectedTopicId);
+  const isTheoryTopic = selectedTopic?.type === "theory";
+  const choiceTopics = useMemo(() => topics.filter((topic) => topic.type === "choice"), [topics]);
+  const choiceQuestions = useMemo(() => choiceTopics.flatMap((topic) => topic.questions), [choiceTopics]);
+  const theoryQuestions = selectedTopic?.type === "theory" ? selectedTopic.questions : [];
+  const wrongQuestions = useMemo(
+    () => choiceQuestions.filter((question) => wrongIds.includes(question.id)),
+    [choiceQuestions, wrongIds],
+  );
   const activeQuestions = mode === "wrong" ? wrongQuestions : questions;
-  const activeQuestion = mode === "wrong" ? activeQuestions[currentIndex] : currentQuestion;
+  const activeQuestion = activeQuestions[currentIndex];
   const correctCount = results.filter((result) => result.isCorrect).length;
   const wrongCount = results.length - correctCount;
   const completionRate = results.length > 0 ? Math.round((correctCount / results.length) * 100) : 0;
+  const examScore = getExamScore(examQuestions, examAnswers);
+  const examWrongQuestions = examQuestions.filter((question) => examAnswers[question.id] !== question.answer);
+  const textReviewItems = theoryQuestions.map((question) => ({
+    question,
+    answer: textAnswers[question.id]?.trim() ?? "",
+    isCorrect: isTextAnswerCorrect(textAnswers[question.id] ?? "", question.answer),
+  }));
 
   function handleModeChange(nextMode: Mode) {
     setMode(nextMode);
@@ -66,16 +90,38 @@ export default function Home() {
     setShowAnswer(false);
     setFlashcardFlipped(false);
 
+    if (nextMode === "practice") {
+      setQuestions(shuffleQuestions(choiceQuestions));
+    }
+
     if (nextMode === "exam") {
-      const mixedQuestions = shuffleQuestions(allQuestions).slice(0, 12);
-      setQuestions(mixedQuestions);
+      startExam();
     }
   }
 
   function selectTopic(topic: Topic) {
-    setSelectedTopic(topic.name);
-    setQuestions(shuffleQuestions(topic.questions));
-    handleModeChange("practice");
+    setSelectedTopicId(topic.gid);
+    setCurrentIndex(0);
+    setSelectedAnswer(null);
+    setShowAnswer(false);
+    setFlashcardFlipped(false);
+    setTextAnswers({});
+    setTextSubmitted(false);
+
+    if (topic.type === "theory") {
+      setMode("practice");
+      setQuestions([]);
+      return;
+    }
+
+    setMode("practice");
+    setQuestions(shuffleQuestions(choiceQuestions));
+  }
+
+  function startExam() {
+    setExamQuestions(shuffleQuestions(choiceQuestions).slice(0, examQuestionCount));
+    setExamAnswers({});
+    setExamSubmitted(false);
   }
 
   function submitAnswer(answer: AnswerOption) {
@@ -106,6 +152,15 @@ export default function Home() {
     setWrongIds([]);
   }
 
+  function submitTextAnswers() {
+    theoryQuestions.forEach((question) => {
+      recordAnswer(question.id, textAnswers[question.id] ?? "", question.answer);
+    });
+    setResults(getStoredResults());
+    setWrongIds(getWrongQuestionIds());
+    setTextSubmitted(true);
+  }
+
   return (
     <main className="shell">
       <aside className="sidebar">
@@ -119,7 +174,7 @@ export default function Home() {
           {topics.map((topic) => (
             <button
               key={topic.gid}
-              className={topic.name === selectedTopic ? "topicButton active" : "topicButton"}
+              className={topic.gid === selectedTopicId ? "topicButton active" : "topicButton"}
               type="button"
               onClick={() => selectTopic(topic)}
             >
@@ -132,26 +187,52 @@ export default function Home() {
 
       <section className="workspace">
         <header className="topbar">
-          <div className="tabs" role="tablist" aria-label="Chế độ ôn thi">
-            <button className={mode === "practice" ? "tab active" : "tab"} type="button" onClick={() => handleModeChange("practice")}>
-              Luyện tập
-            </button>
-            <button className={mode === "exam" ? "tab active" : "tab"} type="button" onClick={() => handleModeChange("exam")}>
-              Thi thử
-            </button>
-            <button className={mode === "flashcard" ? "tab active" : "tab"} type="button" onClick={() => handleModeChange("flashcard")}>
-              Flashcard
-            </button>
-            <button className={mode === "wrong" ? "tab active" : "tab"} type="button" onClick={() => handleModeChange("wrong")}>
-              Câu sai
-            </button>
-            <button className={mode === "stats" ? "tab active" : "tab"} type="button" onClick={() => handleModeChange("stats")}>
-              Thống kê
-            </button>
-          </div>
+          {isTheoryTopic ? (
+            <div className="tabs" role="tablist" aria-label="Chế độ lý thuyết">
+              <button className={!textSubmitted ? "tab active" : "tab"} type="button" onClick={() => setTextSubmitted(false)}>
+                Làm thử
+              </button>
+              <button className={textSubmitted ? "tab active" : "tab"} type="button" onClick={() => setTextSubmitted(true)}>
+                Xem lại kết quả
+              </button>
+            </div>
+          ) : (
+            <div className="tabs" role="tablist" aria-label="Chế độ ôn thi">
+              <button className={mode === "practice" ? "tab active" : "tab"} type="button" onClick={() => handleModeChange("practice")}>
+                Luyện tập
+              </button>
+              <button className={mode === "exam" ? "tab active" : "tab"} type="button" onClick={() => handleModeChange("exam")}>
+                Thi thử
+              </button>
+              <button className={mode === "flashcard" ? "tab active" : "tab"} type="button" onClick={() => handleModeChange("flashcard")}>
+                Flashcard
+              </button>
+              <button className={mode === "wrong" ? "tab active" : "tab"} type="button" onClick={() => handleModeChange("wrong")}>
+                Câu sai
+              </button>
+              <button className={mode === "stats" ? "tab active" : "tab"} type="button" onClick={() => handleModeChange("stats")}>
+                Thống kê
+              </button>
+            </div>
+          )}
         </header>
 
-        {mode === "stats" ? (
+        {isTheoryTopic ? (
+          <TheoryPanel
+            isLoading={isLoading}
+            errorText={errorMessage}
+            questions={theoryQuestions}
+            answers={textAnswers}
+            isReviewing={textSubmitted}
+            reviewItems={textReviewItems}
+            onAnswerChange={(questionId, value) => setTextAnswers((current) => ({ ...current, [questionId]: value }))}
+            onSubmit={submitTextAnswers}
+            onRetry={() => {
+              setTextAnswers({});
+              setTextSubmitted(false);
+            }}
+          />
+        ) : mode === "stats" ? (
           <StatsPanel
             completionRate={completionRate}
             correctCount={correctCount}
@@ -159,6 +240,18 @@ export default function Home() {
             wrongCount={wrongCount}
             wrongIdsCount={wrongIds.length}
             onReset={handleReset}
+          />
+        ) : mode === "exam" ? (
+          <ExamPanel
+            questions={examQuestions}
+            answers={examAnswers}
+            score={examScore}
+            wrongQuestions={examWrongQuestions}
+            submitted={examSubmitted}
+            onAnswer={(questionId, answer) => setExamAnswers((current) => ({ ...current, [questionId]: answer }))}
+            onSubmit={() => setExamSubmitted(true)}
+            onRetry={startExam}
+            onBackToStart={() => handleModeChange("practice")}
           />
         ) : mode === "flashcard" ? (
           <FlashcardPanel
@@ -226,23 +319,7 @@ function QuizPanel({
         <span>{question.level}</span>
       </div>
       <h2>{question.question}</h2>
-      <div className="answerGrid">
-        {options.map((option) => {
-          const isCorrect = showAnswer && option === question.answer;
-          const isWrong = showAnswer && option === selectedAnswer && selectedAnswer !== question.answer;
-          return (
-            <button
-              key={option}
-              className={`answerButton ${isCorrect ? "correct" : ""} ${isWrong ? "wrong" : ""}`}
-              type="button"
-              onClick={() => onAnswer(option)}
-            >
-              <strong>{option}</strong>
-              <span>{question[option]}</span>
-            </button>
-          );
-        })}
-      </div>
+      <ChoiceGrid question={question} selectedAnswer={selectedAnswer} showAnswer={showAnswer} onAnswer={onAnswer} />
       {showAnswer ? (
         <div className="explanation">
           <strong>Đáp án {question.answer}</strong>
@@ -252,6 +329,232 @@ function QuizPanel({
       <div className="actions">
         <button className="primaryButton" type="button" onClick={onNext}>
           Câu tiếp theo
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function ChoiceGrid({
+  question,
+  selectedAnswer,
+  showAnswer,
+  onAnswer,
+}: {
+  question: Question;
+  selectedAnswer?: AnswerOption | null;
+  showAnswer: boolean;
+  onAnswer: (answer: AnswerOption) => void;
+}) {
+  return (
+    <div className="answerGrid">
+      {options.map((option) => {
+        const isCorrect = showAnswer && option === question.answer;
+        const isWrong = showAnswer && option === selectedAnswer && selectedAnswer !== question.answer;
+        return (
+          <button
+            key={option}
+            className={`answerButton ${isCorrect ? "correct" : ""} ${isWrong ? "wrong" : ""}`}
+            type="button"
+            onClick={() => onAnswer(option)}
+          >
+            <strong>{option}</strong>
+            <span>{question[option]}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ExamPanel({
+  questions,
+  answers,
+  score,
+  wrongQuestions,
+  submitted,
+  onAnswer,
+  onSubmit,
+  onRetry,
+  onBackToStart,
+}: {
+  questions: Question[];
+  answers: ExamAnswerMap;
+  score: number;
+  wrongQuestions: Question[];
+  submitted: boolean;
+  onAnswer: (questionId: string, answer: AnswerOption) => void;
+  onSubmit: () => void;
+  onRetry: () => void;
+  onBackToStart: () => void;
+}) {
+  if (questions.length === 0) {
+    return <div className="panel empty">Chưa có câu hỏi để thi thử.</div>;
+  }
+
+  if (submitted) {
+    return (
+      <article className="panel examResultPanel">
+        <div className="scoreBox">
+          <span>Điểm thi thử</span>
+          <strong>{score}/{questions.length}</strong>
+        </div>
+        <p className="muted">Bạn làm sai {wrongQuestions.length} câu.</p>
+        {wrongQuestions.length > 0 ? (
+          <div className="reviewList">
+            {wrongQuestions.map((question, index) => (
+              <div className="reviewItem" key={question.id}>
+                <div className="questionMeta">
+                  <span>Câu sai {index + 1}</span>
+                  <span>{question.level}</span>
+                </div>
+                <h3>{question.question}</h3>
+                <p className="muted">
+                  Bạn chọn: <strong>{answers[question.id] || "Chưa chọn"}</strong>. Đáp án đúng: <strong>{question.answer}</strong>.
+                </p>
+                <p>{question.explanation}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        <div className="actions">
+          <button className="primaryButton" type="button" onClick={onRetry}>
+            Thi lại
+          </button>
+          <button className="secondaryButton" type="button" onClick={onBackToStart}>
+            Chuyển về từ đầu
+          </button>
+        </div>
+      </article>
+    );
+  }
+
+  return (
+    <article className="examShell">
+      <div className="examHeader">
+        <div>
+          <p className="eyebrow dark">Thi thử</p>
+          <h2>{questions.length} câu ngẫu nhiên</h2>
+        </div>
+        <div className="examCounter">
+          <strong>{Object.keys(answers).length}</strong>
+          <span>đã chọn</span>
+        </div>
+      </div>
+      <div className="examQuestionList">
+        {questions.map((question, index) => (
+          <section className="examQuestion" key={question.id}>
+            <div className="questionMeta">
+              <span>Câu {index + 1}</span>
+              <span>{question.level}</span>
+            </div>
+            <h3>{question.question}</h3>
+            <div className="compactAnswerGrid">
+              {options.map((option) => (
+                <button
+                  key={option}
+                  className={answers[question.id] === option ? "compactAnswer active" : "compactAnswer"}
+                  type="button"
+                  onClick={() => onAnswer(question.id, option)}
+                >
+                  <strong>{option}</strong>
+                  <span>{question[option]}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+      <div className="stickyActions">
+        <button className="primaryButton" type="button" onClick={onSubmit}>
+          Hoàn thành
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function TheoryPanel({
+  isLoading,
+  errorText,
+  questions,
+  answers,
+  isReviewing,
+  reviewItems,
+  onAnswerChange,
+  onSubmit,
+  onRetry,
+}: {
+  isLoading: boolean;
+  errorText: string;
+  questions: Question[];
+  answers: TextAnswerMap;
+  isReviewing: boolean;
+  reviewItems: Array<{ question: Question; answer: string; isCorrect: boolean }>;
+  onAnswerChange: (questionId: string, value: string) => void;
+  onSubmit: () => void;
+  onRetry: () => void;
+}) {
+  if (isLoading) {
+    return <div className="panel empty">Đang tải câu hỏi...</div>;
+  }
+
+  if (questions.length === 0) {
+    return <div className="panel empty">{errorText || "Sheet lý thuyết chưa có câu hỏi."}</div>;
+  }
+
+  if (isReviewing) {
+    const correctCount = reviewItems.filter((item) => item.isCorrect).length;
+    return (
+      <article className="panel">
+        <div className="scoreBox inline">
+          <span>Kết quả lý thuyết</span>
+          <strong>{correctCount}/{reviewItems.length}</strong>
+        </div>
+        <div className="reviewList">
+          {reviewItems.map(({ question, answer, isCorrect }, index) => (
+            <div className={isCorrect ? "reviewItem correctBorder" : "reviewItem wrongBorder"} key={question.id}>
+              <div className="questionMeta">
+                <span>Câu {index + 1}</span>
+                <span>{isCorrect ? "Đúng" : "Sai"}</span>
+              </div>
+              <h3>{question.question}</h3>
+              <p className="muted">
+                Bạn nhập: <strong>{answer || "Chưa nhập"}</strong>
+              </p>
+              <p>
+                Đáp án: <strong>{question.answer}</strong>
+              </p>
+              <p className="muted">{question.explanation}</p>
+            </div>
+          ))}
+        </div>
+        <div className="actions">
+          <button className="primaryButton" type="button" onClick={onRetry}>
+            Làm lại
+          </button>
+        </div>
+      </article>
+    );
+  }
+
+  return (
+    <article className="panel theoryPanel">
+      {questions.map((question, index) => (
+        <label className="textQuestion" key={question.id}>
+          <span>Câu {index + 1}</span>
+          <strong>{question.question}</strong>
+          <input
+            type="text"
+            value={answers[question.id] ?? ""}
+            onChange={(event) => onAnswerChange(question.id, event.target.value)}
+            placeholder="Nhập câu trả lời"
+          />
+        </label>
+      ))}
+      <div className="actions">
+        <button className="primaryButton" type="button" onClick={onSubmit}>
+          Xem lại kết quả
         </button>
       </div>
     </article>
@@ -343,6 +646,18 @@ function StatsPanel({
       </button>
     </article>
   );
+}
+
+function getExamScore(questions: Question[], answers: ExamAnswerMap) {
+  return questions.filter((question) => answers[question.id] === question.answer).length;
+}
+
+function isTextAnswerCorrect(answer: string, correctAnswer: string) {
+  return normalizeText(answer) === normalizeText(correctAnswer);
+}
+
+function normalizeText(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 function shuffleQuestions<T>(items: T[]) {
