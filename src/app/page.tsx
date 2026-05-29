@@ -15,6 +15,7 @@ import ExamPanel from "@/components/ExamPanel";
 import TheoryPanel from "@/components/TheoryPanel";
 import FlashcardPanel from "@/components/FlashcardPanel";
 import StatsPanel from "@/components/StatsPanel";
+import Spinner from "@/components/Spinner";
 
 const options: AnswerOption[] = ["A", "B", "C", "D"];
 const examQuestionCount = 35;
@@ -34,6 +35,7 @@ export default function Home() {
   const [results, setResults] = useState<PracticeResult[]>(() => getStoredResults());
   const [wrongIds, setWrongIds] = useState<string[]>(() => getWrongQuestionIds());
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [flashcardFlipped, setFlashcardFlipped] = useState(false);
   const [examQuestions, setExamQuestions] = useState<Question[]>([]);
@@ -44,22 +46,55 @@ export default function Home() {
 
   useEffect(() => {
     async function loadTopics() {
-      setIsLoading(true);
       setErrorMessage("");
 
-      try {
-        const nextTopics = await fetchTopics();
-        const firstTopic = nextTopics[0];
-        const nextChoiceQuestions = nextTopics
-          .filter((topic) => topic.type === "choice")
-          .flatMap((topic) => topic.questions);
+      const storageKey = "cachedTopics";
 
-        setTopics(nextTopics);
-        setSelectedTopicId(firstTopic?.gid ?? "");
-        setQuestions(shuffleQuestions(nextChoiceQuestions));
+      try {
+        // Try to load cached topics from localStorage for fast initial render
+        let cachedStr: string | null = null;
+        try {
+          cachedStr = localStorage.getItem(storageKey);
+        } catch (e) {
+          cachedStr = null;
+        }
+
+        if (cachedStr) {
+          try {
+            const cached = JSON.parse(cachedStr) as Topic[];
+            setTopics(cached);
+            const first = cached[0];
+            setSelectedTopicId(first?.gid ?? "");
+            const initialChoiceQuestions = cached.filter((t) => t.type === "choice").flatMap((t) => t.questions);
+            setQuestions(shuffleQuestions(initialChoiceQuestions));
+            setIsLoading(false);
+          } catch (e) {
+            // ignore parse errors and proceed to fetch
+            setIsLoading(true);
+          }
+        } else {
+          setIsLoading(true);
+        }
+
+        // Fetch latest data and sync in background
+        setIsSyncing(true);
+        const nextTopics = await fetchTopics();
+        setIsSyncing(false);
+
+        const nextStr = JSON.stringify(nextTopics);
+        if (!cachedStr || cachedStr !== nextStr) {
+          // update UI and cache if changed
+          setTopics(nextTopics);
+          localStorage.setItem(storageKey, nextStr);
+          const firstTopic = nextTopics[0];
+          setSelectedTopicId(firstTopic?.gid ?? "");
+          const nextChoiceQuestions = nextTopics.filter((t) => t.type === "choice").flatMap((t) => t.questions);
+          setQuestions(shuffleQuestions(nextChoiceQuestions));
+        }
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "Không tải được dữ liệu.");
       } finally {
+        setIsSyncing(false);
         setIsLoading(false);
       }
     }
@@ -176,7 +211,15 @@ export default function Home() {
         </div>
 
         <nav className="topicList" aria-label="Danh sách chuyên đề">
-          {topics.length === 0 ? <p className="sidebarHint">Chưa có chuyên đề.</p> : null}
+          {topics.length === 0 ? (
+            isLoading ? (
+              <div style={{ padding: 12 }}>
+                <Spinner size={28} />
+              </div>
+            ) : (
+              <p className="sidebarHint">Chưa có chuyên đề.</p>
+            )
+          ) : null}
           {topics.map((topic) => (
             <button
               key={topic.gid}
@@ -192,6 +235,14 @@ export default function Home() {
       </aside>
 
       <section className="workspace">
+        {isSyncing ? (
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div className="syncBanner">
+              <svg width="16" height="16" viewBox="0 0 50 50" className="spinner"><circle className="path" cx="25" cy="25" r="20" fill="none" strokeWidth="4"></circle></svg>
+              <span>Đang đồng bộ dữ liệu...</span>
+            </div>
+          </div>
+        ) : null}
         <header className="topbar">
           {isTheoryTopic ? (
             <div className="tabs" role="tablist" aria-label="Chế độ lý thuyết">

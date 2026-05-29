@@ -1,4 +1,5 @@
 import type { Question } from "@/types/quiz";
+import Spinner from "@/components/Spinner";
 
 type TextAnswerMap = Record<string, string>;
 
@@ -24,7 +25,11 @@ export default function TheoryPanel({
   onRetry: () => void;
 }) {
   if (isLoading) {
-    return <div className="panel empty">Đang tải câu hỏi...</div>;
+    return (
+      <div className="panel empty">
+        <Spinner size={48} />
+      </div>
+    );
   }
 
   if (questions.length === 0) {

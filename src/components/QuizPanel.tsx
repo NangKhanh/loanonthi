@@ -1,5 +1,6 @@
 import type { AnswerOption, Question } from "@/types/quiz";
 import ChoiceGrid from "@/components/ChoiceGrid";
+import Spinner from "@/components/Spinner";
 
 export default function QuizPanel({
   question,
@@ -25,7 +26,11 @@ export default function QuizPanel({
   onNext: () => void;
 }) {
   if (isLoading) {
-    return <div className="panel empty">Đang tải câu hỏi...</div>;
+    return (
+      <div className="panel empty">
+        <Spinner size={48} />
+      </div>
+    );
   }
 
   if (!question) {
