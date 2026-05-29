@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   description: "Luyện tập, thi thử và ôn lại câu sai bằng Next.js + Google Sheets",
 };
 
+import GAClient from "@/components/GAClient";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,7 +35,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <GAClient />
+      </body>
     </html>
   );
 }
