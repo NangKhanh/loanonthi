@@ -538,8 +538,8 @@ function TheoryPanel({
         <label className="textQuestion" key={question.id}>
           <span>Câu {index + 1}</span>
           <strong>{question.question}</strong>
-          <input
-            type="text"
+          <textarea
+            // type="text"
             value={answers[question.id] ?? ""}
             onChange={(event) => onAnswerChange(question.id, event.target.value)}
             placeholder="Nhập câu trả lời"

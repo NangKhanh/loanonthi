@@ -153,9 +153,9 @@ function normalizeAnswer(answer: string): AnswerOption | "" {
 }
 
 function getTopicType(name: string): TopicType {
-  return name.trim().toLowerCase().startsWith("ly-thuyet-") ? "theory" : "choice";
+  return name.trim().toLowerCase().startsWith("lt-") ? "theory" : "choice";
 }
 
 function getDisplayName(name: string) {
-  return name.replace(/^ly-thuyet-/i, "");
+  return name.replace(/^lt-/i, "");
 }
