@@ -90,7 +90,8 @@ export default function Home() {
     setFlashcardFlipped(false);
 
     if (nextMode === "practice") {
-      setQuestions(shuffleQuestions(choiceQuestions));
+      const topicQuestions = selectedTopic?.type === "choice" ? selectedTopic.questions : [];
+      setQuestions(shuffleQuestions(topicQuestions));
     }
 
     if (nextMode === "exam") {
@@ -114,7 +115,7 @@ export default function Home() {
     }
 
     setMode("practice");
-    setQuestions(shuffleQuestions(choiceQuestions));
+    setQuestions(shuffleQuestions(topic.questions));
   }
 
   function startExam() {
