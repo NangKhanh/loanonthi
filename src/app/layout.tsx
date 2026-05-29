@@ -16,25 +16,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi">
-      <head>
-        {/* Google Analytics */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-L8MK82ZMPY"
-          strategy="afterInteractive"
-        />
-        <Script
-          id="google-analytics"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', 'G-L8MK82ZMPY');
-            `,
-          }}
-        />
-      </head>
       <body>
         {children}
         <GAClient />
