@@ -41,7 +41,6 @@ export default function ExamPanel({
               <div className="reviewItem" key={question.id}>
                 <div className="questionMeta">
                   <span>Câu sai {index + 1}</span>
-                  <span>{question.level}</span>
                 </div>
                 <h3>{question.question}</h3>
                 <p className="muted">
@@ -81,7 +80,6 @@ export default function ExamPanel({
           <section className="examQuestion" key={question.id}>
             <div className="questionMeta">
               <span>Câu {index + 1}</span>
-              <span>{question.level}</span>
             </div>
             <h3>{question.question}</h3>
             <div className="compactAnswerGrid">

@@ -39,7 +39,6 @@ export default function TheoryPanel({
             <div className="reviewItem" key={question.id}>
               <div className="questionMeta">
                 <span>Câu {index + 1}</span>
-                <span>{question.level}</span>
               </div>
               <h3>{question.question}</h3>
               <p className="muted">

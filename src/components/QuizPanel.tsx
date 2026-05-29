@@ -36,7 +36,6 @@ export default function QuizPanel({
     <article className="panel">
       <div className="questionMeta">
         <span>Câu {currentIndex + 1}/{total}</span>
-        <span>{question.level}</span>
       </div>
       <h2>{question.question}</h2>
       <ChoiceGrid question={question} selectedAnswer={selectedAnswer} showAnswer={showAnswer} onAnswer={onAnswer} />
