@@ -131,7 +131,7 @@ h2 {
   flex-direction: column;
   gap: 24px;
   height: 100dvh;
-  overflow-y: auto;
+  overflow: hidden auto;
   padding: 28px;
   scrollbar-gutter: stable;
 }
@@ -522,8 +522,12 @@ h2 {
 }
 
 @keyframes rotate {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .syncBanner {
